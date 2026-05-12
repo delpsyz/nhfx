@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>清洁生产辅助能资源消耗分析工具</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei','PingFang SC',sans-serif;background:#f0f2f5;min-height:100vh;color:#333}
+.app{max-width:1400px;margin:0 auto;padding:16px}
+
+/* 顶部 */
+.app-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.app-header h1{font-size:20px;color:#1a1a2e;display:flex;align-items:center;gap:8px}
+.app-header h1 span{font-size:11px;background:#2563eb;color:#fff;padding:2px 8px;border-radius:10px}
+
+/* 卡片通用 */
+.card{background:#fff;border-radius:8px;padding:16px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.card-title{font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e8e8e8;display:flex;align-items:center;gap:6px}
+
+/* 行业选择行 */
+.industry-row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:3px}
+.field label{font-size:11px;color:#888;font-weight:600}
+.field select,.field input{padding:7px 10px;border:1px solid #d9d9d9;border-radius:6px;font-size:12px;background:#fff;color:#333;min-width:140px}
+.field select:focus,.field input:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.1)}
+.benchmark-info{background:#f0f7ff;border:1px solid #b3d4fc;border-radius:6px;padding:8px 12px;font-size:11px;color:#1a56db;line-height:1.6}
+.benchmark-info strong{color:#1e40af}
+
+/* 主表格 */
+.main-table{width:100%;border-collapse:collapse;font-size:12px}
+.main-table th{background:#1a1a2e;color:#fff;padding:8px 6px;font-weight:600;text-align:center;white-space:nowrap}
+.main-table td{padding:6px;border:1px solid #e8e8e8;text-align:center;vertical-align:middle}
+.main-table tr:hover td{background:#fafbfc}
+.main-table .row-label{background:#f8f9fa;font-weight:600;color:#555;text-align:left;padding-left:10px;white-space:nowrap;min-width:90px}
+.main-table .row-label.energy-row{background:#eef2ff;color:#1e40af}
+.main-table .row-label.output-row{background:#f0fdf4;color:#166534}
+.main-table .row-label.total-row{background:#fef3c7;color:#92400e}
+.main-table .row-label.action-row{background:#f8f9fa;color:#888;font-size:11px}
+.main-table .year-header{background:#1e40af !important;min-width:130px}
+.main-table input[type="number"]{width:80px;padding:5px 6px;border:1px solid #d9d9d9;border-radius:4px;font-size:12px;text-align:center}
+.main-table input[type="number"]:focus{outline:none;border-color:#2563eb}
+.main-table select{padding:5px 4px;border:1px solid #d9d9d9;border-radius:4px;font-size:11px;text-align:center}
+.main-table .tce-cell{background:#dcfce7;color:#166534;font-weight:700;font-size:12px}
+.main-table .unit-input{width:50px !important;font-size:10px !important;color:#888}
+.main-table .add-btn{background:none;border:1px dashed #bbb;color:#888;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px}
+.main-table .add-btn:hover{border-color:#2563eb;color:#2563eb}
+.main-table .del-btn{background:none;border:none;color:#ccc;cursor:pointer;font-size:14px;padding:0 4px}
+.main-table .del-btn:hover{color:#dc2626}
+.main-table .year-del{background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:13px;margin-left:6px}
+.main-table .year-del:hover{color:#fff}
+
+/* 折标系数 */
+.coef-bar{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid #e8e8e8;font-size:11px;color:#888}
+.coef-bar .coef-item{display:flex;align-items:center;gap:4px}
+.coef-bar .coef-item label{font-weight:600}
+.coef-bar .coef-item input{width:60px;padding:3px 5px;border:1px solid #d9d9d9;border-radius:4px;font-size:11px;text-align:center}
+
+/* 操作栏 */
+.action-bar{display:flex;gap:10px;justify-content:center;margin-top:14px;padding-top:12px;border-top:1px solid #e8e8e8}
+.btn{padding:8px 20px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:all .2s}
+.btn-primary{background:#2563eb;color:#fff}.btn-primary:hover{background:#1d4ed8;box-shadow:0 2px 8px rgba(37,99,235,.3)}
+.btn-ghost{background:#f5f5f5;color:#666;border:1px solid #d9d9d9}.btn-ghost:hover{background:#e8e8e8}
+
+/* 图表 */
+.chart-toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.chart-toolbar .sep{width:1px;height:20px;background:#e8e8e8;margin:0 4px}
+.chart-btn{padding:5px 12px;border:1px solid #d9d9d9;border-radius:14px;background:#fff;cursor:pointer;font-size:11px;color:#666;transition:all .2s}
+.chart-btn.active{background:#2563eb;color:#fff;border-color:#2563eb}
+.chart-btn:hover:not(.active){border-color:#2563eb;color:#2563eb}
+.chart-box{position:relative;height:320px}
+
+/* 报告 */
+.report-full{background:#fff;border-radius:8px;padding:20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.report-full h2{font-size:16px;color:#1a1a2e;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #2563eb}
+.chapter{margin-bottom:16px}
+.chapter h3{font-size:13px;color:#1e40af;margin-bottom:8px;padding-left:8px;border-left:3px solid #2563eb}
+.chapter p{font-size:12px;line-height:1.9;color:#555;text-indent:2em;margin-bottom:6px}
+.chapter ul{margin:6px 0 6px 24px;font-size:12px;color:#555;line-height:1.8}
+.chapter li{margin-bottom:3px}
+.chapter table{width:100%;border-collapse:collapse;margin:8px 0;font-size:11px}
+.chapter table th{background:#1e40af;color:#fff;padding:5px 8px;text-align:center}
+.chapter table td{padding:5px 8px;border:1px solid #e8e8e8;text-align:center}
+.chapter table tr:nth-child(even){background:#f8f9fa}
+.highlight{background:#f0f7ff;border-left:3px solid #2563eb;padding:10px 12px;border-radius:0 6px 6px 0;margin:8px 0}
+.highlight p{text-indent:0 !important;color:#1e40af;font-size:12px}
+.conclusion{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:8px;padding:12px;margin-top:12px}
+.conclusion p{color:#166534;font-size:12px;text-indent:2em;margin-bottom:4px}
+
+/* 两列 */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.metric-tag{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;margin:2px;font-weight:600;color:#fff}
+.metric-tag.blue{background:#2563eb}.metric-tag.green{background:#059669}.metric-tag.red{background:#dc2626}.metric-tag.orange{background:#d97706}.metric-tag.purple{background:#7c3aed}
+
+.item-card{background:#f8f9fa;border-radius:6px;padding:10px;margin-bottom:6px;border-left:3px solid #2563eb}
+.item-card h4{font-size:12px;color:#1a1a2e;margin-bottom:4px}
+.item-card p{font-size:11px;color:#666;line-height:1.6}
+.item-card.warn{border-color:#d97706}.item-card.good{border-color:#059669}.item-card.bad{border-color:#dc2626}
+.tag-s{display:inline-block;padding:1px 6px;border-radius:8px;font-size:9px;color:#fff;margin-right:4px;font-weight:600}
+.tag-s.high{background:#dc2626}.tag-s.mid{background:#d97706}.tag-s.low{background:#059669}
+
+.empty{text-align:center;padding:30px;color:#bbb;font-size:13px}
+
+@media(max-width:1000px){.two-col{grid-template-columns:1fr}.main-table{font-size:11px}.main-table input[type="number"]{width:65px}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="app-header">
+    <h1>🌱 清洁生产能资源消耗分析 <span>V11</span></h1>
+    <div style="font-size:11px;color:#999">数据来源：上海市产业能效指南（2023版）</div>
+</div>
+
+<!-- 行业选择 -->
+<div class="card">
+    <div class="card-title">🏭 行业信息</div>
+    <div class="industry-row">
+        <div class="field"><label>大类行业</label><select id="catSel" onchange="onCatChange()"><option value="">请选择</option></select></div>
+        <div class="field"><label>小类行业</label><select id="subSel" onchange="onSubChange()"><option value="">请选择</option></select></div>
+        <div id="bmInfo" style="display:none"></div>
+    </div>
+</div>
+
+<!-- 数据录入 -->
+<div class="card">
+    <div class="card-title">📊 能源与产出数据录入</div>
+    <div style="overflow-x:auto">
+        <table class="main-table" id="mainTable"></table>
+    </div>
+    <div class="coef-bar">
+        <span style="font-weight:700;color:#555">折标系数(kgce)：</span>
+        <div class="coef-item"><label>电力</label><input type="number" id="c-elec" value="0.1229" step="0.0001" onchange="recalcAll()"></div>
+        <div class="coef-item"><label>天然气</label><input type="number" id="c-gas" value="1.2143" step="0.0001" onchange="recalcAll()"></div>
+        <div class="coef-item"><label>原煤</label><input type="number" id="c-coal" value="714.3" step="0.1" onchange="recalcAll()"></div>
+        <div class="coef-item"><label>蒸汽</label><input type="number" id="c-steam" value="0.1286" step="0.0001" onchange="recalcAll()"></div>
+        <div class="coef-item"><label>柴油</label><input type="number" id="c-diesel" value="1.4571" step="0.0001" onchange="recalcAll()"></div>
+        <div class="coef-item"><label>汽油</label><input type="number" id="c-gasoline" value="1.4714" step="0.0001" onchange="recalcAll()"></div>
+        <div class="coef-item"><label>液化气</label><input type="number" id="c-lpg" value="1714.3" step="0.1" onchange="recalcAll()"></div>
+        <div class="coef-item"><label>重油</label><input type="number" id="c-heavy" value="1428.6" step="0.1" onchange="recalcAll()"></div>
+    </div>
+    <div class="action-bar">
+        <button class="btn btn-primary" onclick="generate()">📈 生成分析报告</button>
+        <button class="btn btn-ghost" onclick="loadDemo()">📝 加载示例</button>
+    </div>
+</div>
+
+<!-- 图表 -->
+<div class="card" id="chartCard" style="display:none">
+    <div class="card-title">📉 数据可视化</div>
+    <div class="chart-toolbar">
+        <button class="chart-btn active" data-t="bar" onclick="setCT('bar',this)">柱状图</button>
+        <button class="chart-btn" data-t="line" onclick="setCT('line',this)">折线图</button>
+        <button class="chart-btn" data-t="pie" onclick="setCT('pie',this)">饼图</button>
+        <div class="sep"></div>
+        <button class="chart-btn active" data-d="total" onclick="setCD('total',this)">综合能耗</button>
+        <button class="chart-btn" data-d="struct" onclick="setCD('struct',this)">能源结构</button>
+        <button class="chart-btn" data-d="intensity" onclick="setCD('intensity',this)">产值能耗</button>
+        <button class="chart-btn" data-d="bench" onclick="setCD('bench',this)">行业对标</button>
+    </div>
+    <div class="chart-box"><canvas id="chart"></canvas></div>
+    <div id="summary" style="margin-top:10px"></div>
+</div>
+
+<!-- 报告 -->
+<div id="reportArea" style="display:none">
+    <div class="report-full" id="reportContent"></div>
+    <div class="two-col">
+        <div class="card"><div class="card-title">⚠️ 问题识别与改进潜力</div><div id="problems"><div class="empty">生成报告后显示</div></div></div>
+        <div class="card"><div class="card-title">💡 清洁生产方案建议</div><div id="suggestions"><div class="empty">生成报告后显示</div></div></div>
+    </div>
+</div>
+
+</div>
+
+<script>
+Chart.register(ChartDataLabels);
+
+/* ========== 行业数据库 ========== */
+const DB={
+"13":{n:"农副食品加工业",s:{"132":{n:"饲料加工",e:.214,w:1.31},"133":{n:"植物油加工",e:.143,w:.275},"135":{n:"屠宰及肉类加工",e:.177,w:4.788},"136":{n:"水产品加工",e:.106,w:14.167},"137":{n:"蔬菜加工",e:.119,w:2.212},"139":{n:"其他农副食品",e:.147,w:1.431}}},
+"14":{n:"食品制造业",s:{"141":{n:"焙烤食品",e:.068,w:.542},"142":{n:"糖果蜜饯",e:.084,w:.405},"143":{n:"方便食品",e:.064,w:.684},"144":{n:"乳制品",e:.07,w:1.263},"146":{n:"调味品",e:.089,w:1.865},"149":{n:"其他食品",e:.067,w:.839}}},
+"15":{n:"酒饮料茶",s:{"151":{n:"酒的制造",e:.073,w:2.894},"152":{n:"饮料制造",e:.055,w:1.361}}},
+"17":{n:"纺织业",s:{"171":{n:"棉纺织印染",e:.168,w:3.575},"175":{n:"化纤织造",e:.178,w:1.905},"177":{n:"家用纺织",e:.042,w:.229}}},
+"18":{n:"纺织服装",s:{"181":{n:"机织服装",e:.04,w:.518},"182":{n:"针织服装",e:.062,w:1.269},"183":{n:"服饰制造",e:.041,w:.435}}},
+"19":{n:"皮革制鞋",s:{"192":{n:"皮革制品",e:.037,w:.75},"195":{n:"制鞋业",e:.023,w:.429}}},
+"20":{n:"木材加工",s:{"202":{n:"人造板",e:.123,w:.497},"203":{n:"木质制品",e:.041,w:.84}}},
+"21":{n:"家具制造业",s:{"211":{n:"木质家具",e:.038,w:.267},"213":{n:"金属家具",e:.043,w:.397}}},
+"22":{n:"造纸纸制品",s:{"222":{n:"造纸",e:.131,w:5.453},"223":{n:"纸制品",e:.061,w:.372}}},
+"23":{n:"印刷业",s:{"231":{n:"印刷",e:.047,w:.723},"232":{n:"装订服务",e:.042,w:1.968}}},
+"24":{n:"文教体育",s:{"241":{n:"文教用品",e:.033,w:.072},"243":{n:"工艺美术",e:.035,w:.429},"244":{n:"体育用品",e:.049,w:.85},"245":{n:"玩具制造",e:.028,w:.256}}},
+"25":{n:"石油煤炭",s:{"251":{n:"精炼石油",e:.82,w:.1}}},
+"26":{n:"化工原料制品",s:{"261":{n:"基础化学原料",e:.228,w:1.301},"262":{n:"肥料制造",e:.117,w:.797},"263":{n:"农药制造",e:.076,w:.414},"264":{n:"涂料油墨",e:.047,w:.418},"265":{n:"合成材料",e:.198,w:.275},"266":{n:"专用化学品",e:.081,w:.571},"268":{n:"日化产品",e:.056,w:.31}}},
+"27":{n:"医药制造业",s:{"271":{n:"化学原料药",e:.093,w:.537},"272":{n:"化学药品制剂",e:.048,w:.559},"273":{n:"中药饮片",e:.092,w:.769},"274":{n:"中成药生产",e:.069,w:.813},"275":{n:"兽用药品",e:.06,w:1.125},"276":{n:"生物药品",e:.058,w:.581},"277":{n:"卫生材料",e:.044,w:.289},"278":{n:"药用辅料",e:.079,w:.916}}},
+"28":{n:"化纤制造业",s:{"282":{n:"合成纤维",e:.183,w:1.582}}},
+"29":{n:"橡胶塑料",s:{"291":{n:"橡胶制品",e:.073,w:1.133},"292":{n:"塑料制品",e:.094,w:.984}}},
+"30":{n:"非金属矿物",s:{"301":{n:"水泥制造",e:.168,w:.448},"302":{n:"水泥制品",e:.049,w:1.846},"303":{n:"砖瓦石材",e:.265,w:.827},"304":{n:"玻璃制造",e:.122,w:1.879},"305":{n:"玻璃制品",e:.074,w:1.577},"307":{n:"陶瓷制品",e:.114,w:1.198},"308":{n:"耐火材料",e:.023,w:.456}}},
+"31":{n:"黑色金属冶炼",s:{"313":{n:"钢压延加工",e:.815,w:4.802}}},
+"32":{n:"有色金属冶炼",s:{"324":{n:"有色金属合金",e:.078,w:1.343},"325":{n:"有色压延",e:.052,w:.386}}},
+"33":{n:"金属制品",s:{"331":{n:"结构金属制品",e:.019,w:.578},"332":{n:"金属工具",e:.041,w:.57},"333":{n:"金属包装容器",e:.048,w:.958},"336":{n:"金属表面处理",e:.074,w:1.73},"339":{n:"铸造及其他",e:.104,w:1.787}}},
+"34":{n:"通用设备",s:{"341":{n:"锅炉及原动",e:.027,w:.389},"342":{n:"金属加工机械",e:.021,w:.522},"343":{n:"物料搬运",e:.02,w:.37},"344":{n:"泵阀门压缩机",e:.02,w:.497},"346":{n:"风机包装设备",e:.015,w:.367},"348":{n:"通用零部件",e:.065,w:1.045}}},
+"35":{n:"专用设备",s:{"351":{n:"采矿冶金设备",e:.024,w:.435},"352":{n:"化工木加工设备",e:.033,w:.565},"353":{n:"食品饮料设备",e:.012,w:.291},"358":{n:"医疗设备器械",e:.028,w:.615}}},
+"36":{n:"汽车制造业",s:{"361":{n:"汽车整车",e:.016,w:.252},"367":{n:"汽车零部件",e:.033,w:.443}}},
+"37":{n:"运输设备",s:{"371":{n:"铁路设备",e:.021,w:.379},"373":{n:"船舶制造",e:.048,w:.2},"374":{n:"航空航天",e:.039,w:1.057}}},
+"38":{n:"电气机械",s:{"381":{n:"电机制造",e:.022,w:.473},"382":{n:"输配电设备",e:.019,w:.395},"383":{n:"电线电缆",e:.02,w:.286},"384":{n:"电池制造",e:.022,w:.263},"385":{n:"家用电力器具",e:.021,w:.467},"387":{n:"照明器具",e:.024,w:.402}}},
+"39":{n:"电子设备",s:{"391":{n:"计算机制造",e:.01,w:.261},"392":{n:"通信设备",e:.009,w:.268},"397":{n:"电子器件",e:.119,w:3.366},"398":{n:"电子元件",e:.081,w:2.534}}},
+"40":{n:"仪器仪表",s:{"401":{n:"通用仪器",e:.01,w:.234},"402":{n:"专用仪器",e:.012,w:.192}}},
+"42":{n:"废弃资源利用",s:{"421":{n:"金属废料处理",e:.031,w:1.911},"422":{n:"非金属废料",e:.138,w:9.48}}},
+"44":{n:"电力热力",s:{"441":{n:"电力生产",e:.305,w:10.663},"443":{n:"热力生产",e:.313,w:23.845}}},
+"45":{n:"燃气生产",s:{"451":{n:"燃气供应",e:.008,w:.111}}},
+"46":{n:"水的生产",s:{"461":{n:"自来水生产",e:.251,w:0},"462":{n:"污水处理",e:.387,w:0}}}
+};
+
+/* 能源类型配置 */
+const ET={
+    electricity:{n:'电力',u:['kWh','万kWh','MWh'],d:'万kWh'},
+    natural_gas:{n:'天然气',u:['m³','万m³'],d:'万m³'},
+    coal:{n:'原煤',u:['kg','t','万t'],d:'t'},
+    steam:{n:'蒸汽',u:['kg','t','万t'],d:'t'},
+    diesel:{n:'柴油',u:['L','t'],d:'L'},
+    gasoline:{n:'汽油',u:['L','t'],d:'L'},
+    lpg:{n:'液化气',u:['kg','t'],d:'t'},
+    heavy_oil:{n:'重油',u:['kg','t'],d:'t'}
+};
+
+const COLORS=['#2563eb','#059669','#d97706','#dc2626','#7c3aed','#db2777','#0891b2','#65a30d'];
+
+/* ========== 状态 ========== */
+let years=[],energies=[],chart=null,cType='bar',cDim='total',selCat='',selSub='';
+
+/* ========== 初始化 ========== */
+function init(){
+    const s=document.getElementById('catSel');
+    s.innerHTML='<option value="">请选择</option>';
+    Object.keys(DB).sort().forEach(k=>s.innerHTML+=`<option value="${k}">${k} ${DB[k].n}</option>`);
+    const cy=new Date().getFullYear();
+    years=[{y:cy-2,output:'',ou:'吨',value:'',vu:'万元'},{y:cy-1,output:'',ou:'吨',value:'',vu:'万元'},{y:cy,output:'',ou:'吨',value:'',vu:'万元'}];
+    energies=[{type:'electricity',vals:{},units:{}},{type:'natural_gas',vals:{},units:{}}];
+    render();
+}
+
+/* ========== 表格渲染 ========== */
+function render(){
+    const t=document.getElementById('mainTable');
+    // 表头
+    let h='<thead><tr><th style="min-width:100px">项目</th>';
+    years.forEach((y,i)=>h+=`<th class="year-header"><input type="number" value="${y.y}" style="width:60px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:4px;color:#fff;text-align:center;font-size:12px;padding:2px 4px" onchange="chgYear(${i},this.value)">年 <button class="year-del" onclick="delYear(${i})" title="删除年份">×</button></th>`);
+    h+='</tr></thead><tbody>';
+    
+    // 能源行
+    energies.forEach((en,ei)=>{
+        const cfg=ET[en.type]||{n:'未知',u:['单位'],d:'单位'};
+        h+=`<tr>`;
+        h+=`<td class="row-label energy-row"><select onchange="chgEType(${ei},this.value)" style="border:none;background:transparent;font-weight:600;color:#1e40af;font-size:12px;cursor:pointer">${Object.keys(ET).map(k=>`<option value="${k}"${en.type===k?' selected':''}>${ET[k].n}</option>`).join('')}</select></td>`;
+        years.forEach((y,yi)=>{
+            const v=en.vals[y.y]||'';
+            const u=en.units[y.y]||cfg.d;
+            const tce=calcTce(en.type,v,u);
+            h+=`<td>
+                <div style="display:flex;gap:4px;justify-content:center;align-items:center">
+                    <input type="number" value="${v}" placeholder="消耗量" onchange="setVal(${ei},${y.y},'v',this.value)" style="width:80px">
+                    <select onchange="setVal(${ei},${y.y},'u',this.value)" style="width:60px">${cfg.u.map(x=>`<option${u===x?' selected':''}>${x}</option>`).join('')}</select>
+                </div>
+                <div class="tce-cell" style="margin-top:3px">${tce} tce</div>
+            </td>`;
+        });
+        h+=`<td style="width:30px"><button class="del-btn" onclick="delEnergy(${ei})" title="删除">×</button></td>`;
+        h+=`</tr>`;
+    });
+    
+    // 添加能源行
+    h+=`<tr><td class="row-label action-row"><button class="add-btn" onclick="addEnergy()">＋ 添加能源类型</button></td>`;
+    years.forEach(()=>h+='<td></td>');
+    h+='<td></td></tr>';
+    
+    // 产量行
+    h+=`<tr><td class="row-label output-row">📦 产量</td>`;
+    years.forEach((y,yi)=>{
+        h+=`<td><div style="display:flex;gap:4px;justify-content:center;align-items:center">
+            <input type="number" class="unit-input" value="${y.output}" placeholder="产量" onchange="years[${yi}].output=this.value">
+            <input type="text" class="unit-input" value="${y.ou}" style="width:40px" onchange="years[${yi}].ou=this.value">
+        </div></td>`;
+    });
+    h+='<td></td></tr>';
+    
+    // 产值行
+    h+=`<tr><td class="row-label output-row">💰 产值</td>`;
+    years.forEach((y,yi)=>{
+        h+=`<td><div style="display:flex;gap:4px;justify-content:center;align-items:center">
+            <input type="number" class="unit-input" value="${y.value}" placeholder="产值" onchange="years[${yi}].value=this.value">
+            <input type="text" class="unit-input" value="${y.vu}" style="width:40px" onchange="years[${yi}].vu=this.value">
+        </div></td>`;
+    });
+    h+='<td></td></tr>';
+    
+    // 当年合计行
+    h+=`<tr><td class="row-label total-row">📊 当年合计</td>`;
+    years.forEach(y=>{
+        const total=energies.reduce((s,en)=>s+parseFloat(calcTce(en.type,en.vals[y.y]||'',en.units[y.y]||ET[en.type]?.d||'')),0);
+        h+=`<td class="tce-cell" style="font-size:13px;padding:8px">${total.toFixed(2)} 吨标煤</td>`;
+    });
+    h+='<td></td></tr>';
+    
+    // 添加年份行
+    h+=`<tr><td class="row-label action-row"><button class="add-btn" onclick="addYear()">＋ 添加年份</button></td>`;
+    years.forEach(()=>h+='<td></td>');
+    h+='<td></td></tr>';
+    
+    h+='</tbody>';
+    t.innerHTML=h;
+}
+
+/* ========== 数据操作 ========== */
+function calcTce(type,val,unit){
+    const v=parseFloat(val)||0;
+    if(!v) return '0.00';
+    const coefMap={electricity:'c-elec',natural_gas:'c-gas',coal:'c-coal',steam:'c-steam',diesel:'c-diesel',gasoline:'c-gasoline',lpg:'c-lpg',heavy_oil:'c-heavy'};
+    let coef=parseFloat(document.getElementById(coefMap[type])?.value)||0;
+    if(unit==='万kWh') coef*=10000;
+    else if(unit==='万m³') coef*=10000;
+    else if(unit==='万t') coef*=10000000;
+    else if(unit==='kg') coef/=1000;
+    return (v*coef/1000).toFixed(2);
+}
+
+function setVal(ei,year,field,val){
+    if(field==='v') energies[ei].vals[year]=val;
+    else energies[ei].units[year]=val;
+    render();
+}
+
+function chgEType(ei,type){
+    energies[ei].type=type;
+    energies[ei].units={};
+    render();
+}
+
+function addEnergy(){
+    energies.push({type:'electricity',vals:{},units:{}});
+    render();
+}
+
+function delEnergy(ei){
+    if(energies.length<=1){alert('至少保留一种能源');return;}
+    energies.splice(ei,1);
+    render();
+}
+
+function addYear(){
+    const last=years.length?years[years.length-1].y:new Date().getFullYear();
+    years.push({y:last+1,output:'',ou:'吨',value:'',vu:'万元'});
+    render();
+}
+
+function delYear(yi){
+    if(years.length<=1){alert('至少保留一个年份');return;}
+    years.splice(yi,1);
+    render();
+}
+
+function chgYear(yi,newY){
+    newY=parseInt(newY);
+    if(!newY||newY<1900||newY>2100){alert('请输入有效年份');render();return;}
+    if(years.some((y,i)=>i!==yi&&y.y===newY)){alert('年份不能重复');render();return;}
+    const oldY=years[yi].y;
+    // 同步更新 energies 中的 vals 和 units 键名
+    energies.forEach(en=>{
+        if(en.vals[oldY]!==undefined){en.vals[newY]=en.vals[oldY];delete en.vals[oldY];}
+        if(en.units[oldY]!==undefined){en.units[newY]=en.units[oldY];delete en.units[oldY];}
+    });
+    years[yi].y=newY;
+    render();
+}
+
+function recalcAll(){render();}
+
+/* ========== 行业 ========== */
+function onCatChange(){
+    selCat=document.getElementById('catSel').value;
+    const ss=document.getElementById('subSel');
+    ss.innerHTML='<option value="">请选择</option>';
+    if(selCat&&DB[selCat]) Object.keys(DB[selCat].s).forEach(k=>ss.innerHTML+=`<option value="${k}">${k} ${DB[selCat].s[k].n}</option>`);
+    selSub='';updateBm();
+}
+function onSubChange(){selSub=document.getElementById('subSel').value;updateBm();}
+function updateBm(){
+    const el=document.getElementById('bmInfo');
+    if(!selCat||!selSub||!DB[selCat]?.s[selSub]){el.style.display='none';return;}
+    const s=DB[selCat].s[selSub];
+    el.style.display='block';
+    el.innerHTML=`<div class="benchmark-info"><strong>${selSub} ${s.n}</strong>　产值能耗：<strong>${s.e}</strong> tce/万元　产值水耗：<strong>${s.w}</strong> m³/万元</div>`;
+}
+
+/* ========== 图表 ========== */
+function setCT(t,el){cType=t;document.querySelectorAll('[data-t]').forEach(b=>b.classList.remove('active'));el.classList.add('active');if(document.getElementById('chartCard').style.display!=='none')drawChart();}
+function setCD(d,el){cDim=d;document.querySelectorAll('[data-d]').forEach(b=>b.classList.remove('active'));el.classList.add('active');if(document.getElementById('chartCard').style.display!=='none')drawChart();}
+
+function getData(){
+    return years.filter(y=>y.y&&energies.some(en=>parseFloat(en.vals[y.y])>0)).map(y=>{
+        const tce=energies.reduce((s,en)=>s+parseFloat(calcTce(en.type,en.vals[y.y]||'',en.units[y.y]||ET[en.type]?.d||'')),0);
+        const val=parseFloat(y.value)||0;
+        const struct={};
+        energies.forEach(en=>{if(parseFloat(en.vals[y.y])>0){const n=ET[en.type]?.n||en.type;struct[n]=(struct[n]||0)+parseFloat(calcTce(en.type,en.vals[y.y],en.units[y.y]||ET[en.type]?.d||''));}});
+        return{y:y.y,tce,output:parseFloat(y.output)||0,value:val,iv:val>0?tce/val:0,struct:Object.entries(struct).map(([t,v])=>({t,v}))};
+    });
+}
+
+const dlCfg={display:true,color:'#1a1a2e',font:{size:10,weight:'bold'},anchor:'end',align:'top',offset:3,formatter:v=>typeof v==='number'?(v>=100?v.toFixed(0):v>=1?v.toFixed(1):v.toFixed(2)):v};
+const pieCfg={display:true,color:'#fff',font:{size:10,weight:'bold'},formatter:(v,c)=>{const t=c.dataset.data.reduce((a,b)=>a+b,0);return c.chart.data.labels[c.dataIndex]+'\n'+((v/t)*100).toFixed(1)+'%'}};
+
+function drawChart(){
+    const ctx=document.getElementById('chart').getContext('2d');
+    if(chart)chart.destroy();
+    const data=getData();
+    if(!data.length)return;
+    let cfg={options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{color:'#333',font:{size:11}}},title:{display:true,text:'',font:{size:13,weight:'bold'},color:'#1a1a2e'},datalabels:dlCfg}}};
+    
+    if(cDim==='bench'){
+        if(!selCat||!selSub){alert('请先选择行业');return;}
+        const bm=DB[selCat].s[selSub];
+        const latest=data.filter(d=>d.iv>0).pop()?.iv||0;
+        cfg.type='bar';cfg.data={labels:['行业平均','企业当前（最近一年）'],datasets:[{label:'产值能耗',data:[bm.e,+latest.toFixed(3)],backgroundColor:['#94a3b8','#2563eb'],borderRadius:6}]};
+        cfg.options.plugins.title.text='行业对标（tce/万元）';
+        cfg.options.scales={y:{beginAtZero:true},x:{ticks:{color:'#666'}}};
+    }else if(cDim==='struct'){
+        const types=[...new Set(data.flatMap(d=>d.struct.map(e=>e.t)))];
+        cfg.type='bar';cfg.data={labels:data.map(d=>d.y+'年'),datasets:types.map((t,i)=>({label:t,data:data.map(d=>{const f=d.struct.find(e=>e.t===t);return f?+f.v.toFixed(2):0}),backgroundColor:COLORS[i%8],borderRadius:3}))};
+        cfg.options.plugins.title.text='能源消费结构（tce）';
+        cfg.options.scales={x:{stacked:true,ticks:{color:'#666'}},y:{stacked:true,beginAtZero:true,ticks:{color:'#666'}}};
+    }else if(cDim==='intensity'){
+        const id=data.filter(d=>d.iv>0);
+        if(!id.length){alert('请录入产值');return;}
+        const ds=[{label:'产值能耗',data:id.map(d=>+d.iv.toFixed(4)),backgroundColor:'#059669',borderColor:'#059669',borderWidth:2,borderRadius:6}];
+        if(selCat&&selSub){const bm=DB[selCat].s[selSub];ds.push({label:'行业平均',data:Array(id.length).fill(bm.e),borderColor:'#d97706',borderWidth:2,borderDash:[5,3],fill:false,type:'line',pointRadius:0});}
+        cfg.type=cType;cfg.data={labels:id.map(d=>d.y+'年'),datasets:ds};
+        cfg.options.plugins.title.text='产值能耗趋势（tce/万元）';
+        cfg.options.scales={y:{beginAtZero:true},x:{ticks:{color:'#666'}}};
+    }else{
+        const labels=data.map(d=>d.y+'年'),values=data.map(d=>+d.tce.toFixed(2));
+        if(cType==='pie'){
+            cfg.type='pie';cfg.data={labels,datasets:[{data:values,backgroundColor:COLORS.slice(0,values.length),borderWidth:2,borderColor:'#fff'}]};
+            cfg.options.plugins.title.text='综合能耗占比';cfg.options.plugins.datalabels=pieCfg;delete cfg.options.scales;
+        }else{
+            cfg.type=cType;cfg.data={labels,datasets:[{label:'综合能耗',data:values,backgroundColor:'#2563eb',borderColor:'#2563eb',borderWidth:2,borderRadius:6,pointRadius:5}]};
+            cfg.options.plugins.title.text='综合能耗（tce）';
+            cfg.options.scales={y:{beginAtZero:true,title:{display:true,text:'tce',color:'#888'}},x:{ticks:{color:'#666'}}};
+        }
+    }
+    chart=new Chart(ctx,cfg);
+}
+
+/* ========== 生成报告 ========== */
+function generate(){
+    const data=getData();
+    if(!data.length){alert('请先录入能源消耗数据');return;}
+    document.getElementById('chartCard').style.display='block';
+    document.getElementById('reportArea').style.display='block';
+    drawChart();renderSummary(data);renderReport(data);renderProblems(data);renderSuggestions();
+    document.getElementById('chartCard').scrollIntoView({behavior:'smooth'});
+}
+
+function renderSummary(data){
+    const total=data.reduce((s,d)=>s+d.tce,0),avg=total/data.length;
+    const g=data.length>1&&data[0].tce>0?((data[data.length-1].tce-data[0].tce)/data[0].tce*100).toFixed(1):0;
+    const id=data.filter(d=>d.iv>0),ai=id.length?id.reduce((s,d)=>s+d.iv,0)/id.length:0;
+    document.getElementById('summary').innerHTML=`<span class="metric-tag purple">累计 ${total.toFixed(2)} tce</span><span class="metric-tag blue">年均 ${avg.toFixed(2)} tce</span><span class="metric-tag ${g>0?'red':'green'}">变化 ${g>0?'+':''}${g}%</span><span class="metric-tag orange">产值能耗 ${ai?ai.toFixed(3)+' tce/万元':'未录入'}</span>`;
+}
+
+function renderReport(data){
+    let cat='',sub='',bm=null;
+    if(selCat&&DB[selCat]){cat=DB[selCat].n;if(selSub&&DB[selCat].s[selSub]){sub=DB[selCat].s[selSub].n;bm=DB[selCat].s[selSub];}}
+    const total=data.reduce((s,d)=>s+d.tce,0),avg=total/data.length;
+    const g=data.length>1&&data[0].tce>0?((data[data.length-1].tce-data[0].tce)/data[0].tce*100).toFixed(1):0;
+    const struct={};data.forEach(d=>d.struct.forEach(e=>{struct[e.t]=(struct[e.t]||0)+e.v;}));
+    const sText=Object.entries(struct).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}占${((v/total)*100).toFixed(1)}%`).join('，');
+    const sRows=Object.entries(struct).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([k,v],i)=>`<tr><td>${i+1}</td><td>${k}</td><td>${v.toFixed(2)}</td><td>${((v/total)*100).toFixed(1)}%</td></tr>`).join('');
+    const id=data.filter(d=>d.iv>0),ai=id.length?id.reduce((s,d)=>s+d.iv,0)/id.length:0;
+    let bmL='',bmA='',bmR=0;
+    if(bm&&ai>0){bmR=ai/bm.e;if(bmR<=.8){bmL='优于行业平均';bmA=`企业产值能耗${ai.toFixed(3)}tce/万元，优于行业平均（${bm.e}tce/万元）约${((1-bmR)*100).toFixed(1)}%，建议总结节能经验，发挥示范作用。`;}else if(bmR<=1){bmL='接近行业平均';bmA=`企业产值能耗${ai.toFixed(3)}tce/万元，接近行业平均（${bm.e}tce/万元），建议对标先进企业，制定改进方案。`;}else if(bmR<=1.3){bmL='高于行业平均';bmA=`企业产值能耗${ai.toFixed(3)}tce/万元，高于行业平均（${bm.e}tce/万元）约${((bmR-1)*100).toFixed(1)}%，建议深入开展清洁生产审核，排查节能机会。`;}else{bmL='显著高于行业平均';bmA=`企业产值能耗${ai.toFixed(3)}tce/万元，显著高于行业平均（${bm.e}tce/万元）约${((bmR-1)*100).toFixed(1)}%，建议优先实施低成本节能措施。`;}}
+    const yRows=data.map((d,i)=>{const p=i>0&&data[i-1].tce>0?((d.tce-data[i-1].tce)/data[i-1].tce*100).toFixed(1):'-';return`<tr><td>${d.y}</td><td>${d.tce.toFixed(2)}</td><td>${d.value||'-'}</td><td>${d.iv?d.iv.toFixed(3):'-'}</td><td>${p!=='-'?(p>0?'+':'')+p+'%':'-'}</td></tr>`;}).join('');
+
+    let h=`<h2>📋 清洁生产审核报告 — 能源消耗分析</h2>`;
+    h+=`<div class="chapter"><h3>一、企业概况与审核范围</h3>
+    <p>本企业属于${cat||'【待填写】'}行业${sub?'，具体为'+sub+'小类':''}。根据《清洁生产审核办法》要求，对${data[0].y}年至${data[data.length-1].y}年能源消耗情况进行了全面调查分析，审核范围涵盖主要生产工序及辅助生产系统的能源消耗。</p></div>`;
+    
+    h+=`<div class="chapter"><h3>二、综合能耗现状分析</h3>
+    <p>审核期内，企业综合能耗合计<strong>${total.toFixed(2)}吨标煤</strong>，年均<strong>${avg.toFixed(2)}吨标煤</strong>，累计变化<strong>${g>0?'+':''}${g}%</strong>。能源消费结构如下：</p>
+    <table><tr><th>序号</th><th>能源类型</th><th>消耗量(tce)</th><th>占比</th></tr>${sRows||'<tr><td colspan="4">暂无数据</td></tr>'}</table>
+    <p>从能源结构分析，${sText?'主要能源为'+sText+'。':'能源结构待完善。'}建议重点关注主要能源的使用效率，优化能源结构。</p>
+    <p>各年度能耗变化情况：</p>
+    <table><tr><th>年份</th><th>综合能耗(tce)</th><th>产值(万元)</th><th>产值能耗(tce/万元)</th><th>同比变化</th></tr>${yRows}</table>
+    <div class="highlight"><p><strong>趋势分析：</strong>${g<0?'综合能耗呈下降趋势，能源管理取得积极成效。':g>10?'综合能耗增长较快，需重点关注增长原因。':'综合能耗保持相对稳定，建议持续优化。'}</p></div></div>`;
+    
+    if(id.length>0) h+=`<div class="chapter"><h3>三、产值能耗分析</h3>
+    <p>企业${data[0].y}年至${data[data.length-1].y}年产值能耗平均值为<strong>${ai.toFixed(3)}吨标煤/万元</strong>。${data[data.length-1].iv>data[0].iv?'产值能耗呈上升趋势，单位产值能源消耗增加。':data[data.length-1].iv<data[0].iv?'产值能耗呈下降趋势，能源利用效率有所提升。':'产值能耗保持相对稳定。'}</p>
+    <p>影响产值能耗的主要因素包括：产品结构、生产工艺水平、能源管理完善程度、主要用能设备运行效率等。建议从以上方面系统排查改进机会。</p></div>`;
+    
+    if(bm&&ai>0) h+=`<div class="chapter"><h3>四、行业对标分析</h3>
+    <p>依据《上海市产业能效指南（2023版）》，${selSub} ${sub}行业产值能耗平均水平为<strong>${bm.e}吨标煤/万元</strong>。</p>
+    <div class="highlight"><p><strong>对标结论：</strong>企业能效水平<span style="color:${ai<=bm.e?'#059669':'#dc2626'};font-weight:bold">${bmL}</span>。</p><p>${bmA}</p></div>
+    <p>差距分析：企业产值能耗${bmR>1?'高于':'优于'}行业平均${Math.abs(bmR-1)*100<.3?'幅度较小':Math.abs(bmR-1)*100<.5?'幅度中等':'幅度较大'}，${bmR>1?'存在较大节能潜力，建议系统推进节能工作。':'建议继续保持并追求更高能效目标。'}</p></div>`;
+    
+    h+=`<div class="chapter"><h3>五、综合评价与建议</h3>
+    <ul>
+    <li>综合能耗${g<0?'呈下降趋势，能源管理取得积极成效':g>10?'增长较快，需加强管控':'保持相对稳定'}；</li>
+    <li>能源消费结构${sText?'以'+Object.keys(struct)[0]+'为主':'待进一步优化'}；</li>
+    ${bm&&ai>0?`<li>行业对标显示${bmL}，${bmR>1?'存在改进空间':'表现良好'}。</li>`:''}
+    </ul>
+    <p>建议按照《清洁生产审核办法》要求，从以下方面推进工作：完善能源计量体系（GB 17167）；定期开展能源审计（GB/T 17166）；实施节能技术改造；建立能源管理体系（GB/T 23331）。</p></div>`;
+    
+    h+=`<div class="conclusion"><p><strong>审核结论：</strong>企业${data[0].y}年至${data[data.length-1].y}年综合能耗${g<0?'呈积极下降态势':g>10?'增长较快':'保持平稳'}，${bm&&ai>0?'行业对标显示'+bmL+'。':''}建议按照清洁生产审核要求，从源头削减、过程控制、末端治理三个层面系统推进清洁生产工作。</p></div>`;
+    
+    document.getElementById('reportContent').innerHTML=h;
+}
+
+function renderProblems(data){
+    const g=data.length>1&&data[0].tce>0?((data[data.length-1].tce-data[0].tce)/data[0].tce*100):0;
+    const ai=data.filter(d=>d.iv>0).reduce((s,d)=>s+d.iv,0)/data.filter(d=>d.iv>0).length||0;
+    const ps=[],pts=[];
+    if(g>10)ps.push({l:'high',t:'综合能耗增长过快',d:`累计增长${g.toFixed(1)}%，建议排查设备老化、产能扩张未同步提升能效等原因。`});
+    else if(g>5)ps.push({l:'mid',t:'综合能耗呈上升趋势',d:`累计增长${g.toFixed(1)}%，建议关注变化趋势，及时控制。`});
+    if(selSub&&DB[selCat]?.s[selSub]){const bm=DB[selCat].s[selSub];if(ai>0){if(ai>bm.e*1.3)pts.push({l:'high',t:'节能潜力巨大',d:`高于行业平均${((ai/bm.e-1)*100).toFixed(1)}%，可节约${((1-bm.e/ai)*100).toFixed(1)}%能源。`});else if(ai>bm.e)pts.push({l:'mid',t:'存在优化空间',d:`高于行业平均${((ai/bm.e-1)*100).toFixed(1)}%。`});else pts.push({l:'low',t:'保持领先',d:'已达或优于行业平均。'});}}
+    if(!ps.length)ps.push({l:'low',t:'总体良好',d:'未发现显著异常。'});
+    if(!pts.length)pts.push({l:'low',t:'持续改进',d:'建议定期能源审计。'});
+    document.getElementById('problems').innerHTML=`<div class="item-card${ps[0].l==='high'?' bad':ps[0].l==='mid'?' warn':' good'}"><h4><span class="tag-s ${ps[0].l}">${ps[0].l==='high'?'高':ps[0].l==='mid'?'中':'低'}</span>${ps[0].t}</h4><p>${ps[0].d}</p></div><div class="item-card good"><h4><span class="tag-s ${pts[0].l}">${pts[0].l==='high'?'高':pts[0].l==='mid'?'中':'低'}</span>${pts[0].t}</h4><p>${pts[0].d}</p></div>`;
+}
+
+function renderSuggestions(){
+    const schemes=[
+        {t:'电机系统节能改造',d:'淘汰低效电机，更换IE3/IE4高效电机，实施变频改造。',e:'节电15-30%',p:'high'},
+        {t:'照明系统LED改造',d:'更换LED灯具，安装智能照明控制系统。',e:'节电50-70%',p:'mid'},
+        {t:'空压机系统优化',d:'排查管网泄漏，回收余热，优化运行台数。',e:'节电20-35%',p:'high'},
+        {t:'锅炉系统节能改造',d:'优化燃烧工况，加强保温，回收烟气余热。',e:'节气8-20%',p:'high'},
+        {t:'蒸汽系统优化',d:'修复泄漏，回收冷凝水，优化蒸汽压力。',e:'节汽10-25%',p:'high'},
+        {t:'能源管理平台',d:'部署EMS系统，实现实时监测和绩效考核。',e:'节能5-10%',p:'mid'}
+    ];
+    document.getElementById('suggestions').innerHTML=schemes.map(s=>`<div class="item-card"><h4><span class="tag-s ${s.p}">${s.p==='high'?'优先':'建议'}</span>${s.t}</h4><p>${s.d}</p><p style="color:#2563eb;font-size:10px;margin-top:3px">📈 ${s.e}</p></div>`).join('');
+}
+
+function loadDemo(){
+    document.getElementById('catSel').value='26';onCatChange();
+    document.getElementById('subSel').value='261';onSubChange();
+    const cy=new Date().getFullYear();
+    years=[{y:cy-2,output:'1000',ou:'吨',value:'2200',vu:'万元'},{y:cy-1,output:'1100',ou:'吨',value:'2500',vu:'万元'},{y:cy,output:'1200',ou:'吨',value:'2800',vu:'万元'}];
+    energies=[
+        {type:'electricity',vals:{[cy-2]:'120',[cy-1]:'140',[cy]:''},units:{[cy-2]:'万kWh',[cy-1]:'万kWh',[cy]:'万kWh'}},
+        {type:'natural_gas',vals:{[cy-2]:'60',[cy-1]:'75',[cy]:''},units:{[cy-2]:'万m³',[cy-1]:'万m³',[cy]:'万m³'}},
+        {type:'steam',vals:{[cy-2]:'',[cy-1]:'200',[cy]:''},units:{[cy-1]:'t',[cy]:'t'}}
+    ];
+    render();generate();
+}
+
+init();
+</script>
+</body>
+</html>
